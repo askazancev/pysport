@@ -67,6 +67,7 @@ from sportorg.modules.recovery import (
     recovery_sportorg_html,
     recovery_sportorg_si_log,
 )
+from sportorg.modules.rfid_yanpodo.rfid_yanpodo import YanpodoClient
 from sportorg.modules.rfid_impinj.rfid_impinj import ImpinjClient
 from sportorg.modules.sfr.sfrreader import SFRReaderClient
 from sportorg.modules.sportident.sireader import SIReaderClient
@@ -596,6 +597,15 @@ class SPORTidentReadoutAction(Action, metaclass=ActionFactory):
 class SportiduinoReadoutAction(Action, metaclass=ActionFactory):
     def execute(self):
         SportiduinoClient().toggle()
+        time.sleep(0.5)
+        self.app.interval()
+
+
+class YanpodoReadoutAction(Action, metaclass=ActionFactory):
+    def execute(self):
+        YanpodoClient().toggle(
+            interface="USB"
+        )  # Можно указать "COM" для работы через COM-порт
         time.sleep(0.5)
         self.app.interval()
 

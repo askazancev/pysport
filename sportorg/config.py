@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 NAME = "SportOrg"
-VERSION = "v1.7.1"
+VERSION = "v1.8.0"
 
 ENV_PREFIX = "SPORTORG_"
 DEBUG = os.getenv(f"{ENV_PREFIX}DEBUG", "false").lower() in ["1", "yes", "true"]

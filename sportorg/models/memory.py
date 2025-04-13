@@ -34,6 +34,7 @@ class SystemType(Enum):
     SPORTIDUINO = 4
     RFID_IMPINJ = 5
     SRPID = 6
+    RFID_YANPODO = 7
 
     def __str__(self) -> str:
         return self._name_
@@ -869,6 +870,7 @@ class Result(ABC):
             or self.is_sfr()
             or self.is_sportiduino()
             or self.is_rfid_impinj()
+            or self.is_rfid_yanpodo()
             or self.is_srpid()
         )
 
@@ -883,6 +885,9 @@ class Result(ABC):
 
     def is_rfid_impinj(self):
         return self.system_type == SystemType.RFID_IMPINJ
+
+    def is_rfid_yanpodo(self):
+        return self.system_type == SystemType.RFID_YANPODO
 
     def is_srpid(self):
         return self.system_type == SystemType.SRPID
@@ -1286,6 +1291,10 @@ class ResultSrpid(ResultSportident):
     system_type = SystemType.SRPID
 
 
+class ResultRfidYanpodo(ResultSportident):
+    system_type = SystemType.RFID_YANPODO
+
+
 class Person(Model):
     def __init__(self):
         self.id = uuid.uuid4()
@@ -1540,6 +1549,7 @@ class Race(Model):
         "ResultSFR": ResultSFR,
         "ResultSportiduino": ResultSportiduino,
         "ResultRfidImpinj": ResultRfidImpinj,
+        "ResultRfidYanpodo": ResultRfidYanpodo,
         "ResultSrpid": ResultSrpid,
         "Group": Group,
         "Course": Course,
@@ -1578,6 +1588,7 @@ class Race(Model):
             "ResultSFR": self.results,
             "ResultSportiduino": self.results,
             "ResultRfidImpinj": self.results,
+            "ResultRfidYanpodo": self.results,
             "ResultSrpid": self.results,
             "Group": self.groups,
             "Course": self.courses,
@@ -1594,6 +1605,7 @@ class Race(Model):
             "ResultSFR": self.result_index,
             "ResultSportiduino": self.result_index,
             "ResultRfidImpinj": self.result_index,
+            "ResultRfidYanpodo": self.result_index,
             "ResultSrpid": self.result_index,
             "Group": self.group_index,
             "Course": self.course_index,

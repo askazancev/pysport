@@ -53,6 +53,7 @@ from sportorg.modules.printing.model import (
     split_printout_close,
 )
 from sportorg.modules.rfid_impinj.rfid_impinj import ImpinjClient
+from sportorg.modules.rfid_yanpodo.rfid_yanpodo import YanpodoClient
 from sportorg.modules.sfr.sfrreader import SFRReaderClient
 from sportorg.modules.sound import Sound
 from sportorg.modules.sportident.result_generation import ResultSportidentGeneration
@@ -82,6 +83,7 @@ def is_reading_active():
         SIReaderClient().is_alive()
         or SFRReaderClient().is_alive()
         or ImpinjClient().is_alive()
+        or YanpodoClient().is_alive()
         or SportiduinoClient().is_alive()
         or SrpidClient().is_alive()
     )
@@ -283,6 +285,7 @@ class MainWindow(QMainWindow):
         SIReaderClient().set_call(self.add_sportident_result_from_sireader)
         SportiduinoClient().set_call(self.add_sportiduino_result_from_reader)
         ImpinjClient().set_call(self.add_impinj_result_from_reader)
+        YanpodoClient().set_call(self.add_yanpodo_result_from_reader)
         SFRReaderClient().set_call(self.add_sfr_result_from_reader)
         SrpidClient().set_call(self.add_srpid_result_from_reader)
 
@@ -674,6 +677,9 @@ class MainWindow(QMainWindow):
         self.add_sportident_result_from_sireader(result)
 
     def add_impinj_result_from_reader(self, result):
+        self.add_sportident_result_from_sireader(result)
+
+    def add_yanpodo_result_from_reader(self, result):
         self.add_sportident_result_from_sireader(result)
 
     def add_srpid_result_from_reader(self, result):

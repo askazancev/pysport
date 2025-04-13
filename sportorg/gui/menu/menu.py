@@ -373,6 +373,11 @@ def menu_list():
                     "action": "SrpidReadoutAction",
                 },
                 {
+                    "title": translate("on/off Yanpodo readout"),
+                    "icon": config.icon_dir("yanpodo.png"),
+                    "action": "YanpodoReadoutAction",
+                },
+                {
                     "title": translate("Teamwork"),
                     "icon": config.icon_dir("network.svg"),
                     "actions": [
