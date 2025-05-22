@@ -48,40 +48,79 @@ class YanpodoThread(QThread):
         # Определяем базовый путь к DLL
         base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        if platform.system() == 'Windows':
+        if platform.system() == "Windows":
             # Загружаем соответствующую DLL
             dll_path_usb = os.path.join(
-                base_dir, "..", "..", "..", "sportorg", "libs", "yanpodo", "X64", "USB", "SWHidApi.dll"
+                base_dir,
+                "..",
+                "..",
+                "..",
+                "sportorg",
+                "libs",
+                "yanpodo",
+                "X64",
+                "USB",
+                "SWHidApi.dll",
             )
             dll_path_com = os.path.join(
-                base_dir, "..", "..", "..", "sportorg", "libs", "yanpodo", "X64", "Com", "SWComApi.dll"
+                base_dir,
+                "..",
+                "..",
+                "..",
+                "sportorg",
+                "libs",
+                "yanpodo",
+                "X64",
+                "Com",
+                "SWComApi.dll",
             )
 
             if self.interface == "USB":
-                self.reader_dll = windll.LoadLibrary(dll_path_usb)
+                self.reader_dll = ctypes.windll.LoadLibrary(dll_path_usb)
             elif self.interface == "COM":
-                self.reader_dll = windll.LoadLibrary(dll_path_com)
+                self.reader_dll = ctypes.windll.LoadLibrary(dll_path_com)
             else:
                 raise ValueError(f"Unsupported interface type: {self.interface}")
-        elif platform.system() == 'Linux':
+        elif platform.system() == "Linux":
             # 1. Явно загружаем libusb в глобальном режиме (RTLD_GLOBAL)
             try:
-                libusb = ctypes.CDLL("/usr/lib/arm-linux-gnueabihf/libusb-1.0.so", mode=ctypes.RTLD_GLOBAL)
+                libusb = ctypes.CDLL(
+                    "/usr/lib/libusb-1.0.so",
+                    mode=ctypes.RTLD_GLOBAL,
+                )
             except Exception as e:
                 print(f"Ошибка загрузки libusb: {e}")
                 exit(1)
             # Загружаем .so для Linux
             dll_path_usb = os.path.join(
-                base_dir, "..", "..", "..", "sportorg", "libs", "yanpodo", "Linux_X64", "USB", "libSWHidApi.so"
+                base_dir,
+                "..",
+                "..",
+                "..",
+                "sportorg",
+                "libs",
+                "yanpodo",
+                "Linux_X64",
+                "USB",
+                "libSWHidApi.so",
             )
             dll_path_com = os.path.join(
-                base_dir, "..", "..", "..", "sportorg", "libs", "yanpodo", "Linux_X64", "Com", "libSWComApi.so"
+                base_dir,
+                "..",
+                "..",
+                "..",
+                "sportorg",
+                "libs",
+                "yanpodo",
+                "Linux_X64",
+                "Com",
+                "libSWComApi.so",
             )
             try:
                 if self.interface == "USB":
-                    self.reader_dll = CDLL(dll_path_usb)
+                    self.reader_dll = ctypes.CDLL(dll_path_usb)
                 elif self.interface == "COM":
-                    self.reader_dll = CDLL(dll_path_com)
+                    self.reader_dll = ctypes.CDLL(dll_path_com)
             except Exception as e:
                 print(f"Ошибка загрузки {self.interface} библиотеки: {e}")
                 exit(1)
@@ -110,7 +149,7 @@ class YanpodoThread(QThread):
             self._logger.debug("Stopping YanpodoThread")
 
     def _initialize_usb(self):
-        if platform.system() == 'Windows':
+        if platform.system() == "Windows":
             if self.reader_dll.SWHid_GetUsbCount() == 0:
                 raise RuntimeError("No USB devices found")
         if self.reader_dll.SWHid_OpenDevice(0) != 1:
