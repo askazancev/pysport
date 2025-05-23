@@ -25,6 +25,7 @@ from sportorg.common.otime import OTime
 from sportorg.common.singleton import singleton
 from sportorg.models import memory
 from sportorg.models.memory import race
+from sportorg import config
 
 
 class YanpodoCommand:
@@ -38,7 +39,7 @@ class YanpodoThread(QThread):
         super().__init__()
         self.setObjectName(self.__class__.__name__)
         self.interface = interface  # "USB" or "COM"
-        self.port = port  # COM port for COM interface
+        self.port = port            # COM port 
         self._queue = queue
         self._stop_event = stop_event
         self._logger = logger
@@ -48,86 +49,62 @@ class YanpodoThread(QThread):
         self.timeout = race().get_setting("readout_duplicate_timeout", 15000)
 
         # Определяем базовый путь к DLL
-        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base_dir = os.path.dirname(config.base_dir("sportorg/libs/yanpodo/"))
 
         if platform.system() == "Windows":
             # Загружаем соответствующую DLL
-            dll_path_usb = os.path.join(
+            lib_path_usb = os.path.join(
                 base_dir,
-                "..",
-                "..",
-                "..",
-                "sportorg",
-                "libs",
-                "yanpodo",
                 "X64",
                 "USB",
                 "SWHidApi.dll",
             )
-            dll_path_com = os.path.join(
+            lib_path_com = os.path.join(
                 base_dir,
-                "..",
-                "..",
-                "..",
-                "sportorg",
-                "libs",
-                "yanpodo",
                 "X64",
                 "Com",
                 "SWComApi.dll",
             )
 
             if self.interface == "USB":
-                self.reader_dll = ctypes.windll.LoadLibrary(dll_path_usb)
+                self.reader_lib = ctypes.windll.LoadLibrary(lib_path_usb)
             elif self.interface == "COM":
-                self.reader_dll = ctypes.windll.LoadLibrary(dll_path_com)
+                self.reader_lib = ctypes.windll.LoadLibrary(lib_path_com)
             else:
                 raise ValueError(f"Unsupported interface type: {self.interface}")
         elif platform.system() == "Linux":
             # 1. Явно загружаем libusb в глобальном режиме (RTLD_GLOBAL)
             try:
                 libusb = ctypes.CDLL(
-                    "/usr/lib/libusb-1.0.so",
+                    "/usr/lib/x86_64-linux-gnu/libusb-1.0.so",
                     mode=ctypes.RTLD_GLOBAL,
                 )
             except Exception as e:
-                print(f"Ошибка загрузки libusb: {e}")
+                print(f"Error libusb: {e}")
                 exit(1)
             # Загружаем .so для Linux
-            dll_path_usb = os.path.join(
+            lib_path_usb = os.path.join(
                 base_dir,
-                "..",
-                "..",
-                "..",
-                "sportorg",
-                "libs",
-                "yanpodo",
                 "Linux_X64",
                 "USB",
                 "libSWHidApi.so",
             )
-            dll_path_com = os.path.join(
+            lib_path_com = os.path.join(
                 base_dir,
-                "..",
-                "..",
-                "..",
-                "sportorg",
-                "libs",
-                "yanpodo",
                 "Linux_X64",
                 "Com",
                 "libSWComApi.so",
             )
             try:
                 if self.interface == "USB":
-                    self.reader_dll = ctypes.CDLL(dll_path_usb)
+                    self.reader_lib = ctypes.CDLL(lib_path_usb)
                 elif self.interface == "COM":
-                    self.reader_dll = ctypes.CDLL(dll_path_com)
+                    self.reader_lib = ctypes.CDLL(lib_path_com)
+                else:
+                    raise ValueError(f"Unsupported interface type: {self.interface}")
             except Exception as e:
                 print(f"Ошибка загрузки {self.interface} библиотеки: {e}")
                 exit(1)
-            else:
-                raise ValueError(f"Unsupported interface type: {self.interface}")
         else:
             raise RuntimeError("Unsupported platform")
 
@@ -152,16 +129,19 @@ class YanpodoThread(QThread):
 
     def _initialize_usb(self):
         if platform.system() == "Windows":
-            if self.reader_dll.SWHid_GetUsbCount() == 0:
+            if self.reader_lib.SWHid_GetUsbCount() == 0:
                 raise RuntimeError("No USB devices found")
-        if self.reader_dll.SWHid_OpenDevice(0) != 1:
-            raise RuntimeError("Failed to open USB device")
-        self.reader_dll.SWHid_ClearTagBuf()
+            if self.reader_lib.SWHid_OpenDevice(0) != 1:
+                raise RuntimeError("Failed to open USB device")
+        if platform.system() == "Linux":
+            if self.reader_lib.SWHid_OpenDevice() != 1:
+                raise RuntimeError("Failed to open USB device")
+        self.reader_lib.SWHid_ClearTagBuf()
 
     def _initialize_com(self):
-        if self.reader_dll.SWCom_OpenDevice(self.port, 115200) != 1:
+        if self.reader_lib.SWCom_OpenDevice(self.port, 115200) != 1:
             raise RuntimeError(f"Failed to open COM device on port {self.port}")
-        self.reader_dll.SWCom_ClearTagBuf()
+        self.reader_lib.SWCom_ClearTagBuf()
 
     def _read_tags(self):
         arr_buffer = bytes(9182)
@@ -169,11 +149,11 @@ class YanpodoThread(QThread):
         tag_number = c_int(0)
 
         if self.interface == "USB":
-            ret = self.reader_dll.SWHid_GetTagBuf(
+            ret = self.reader_lib.SWHid_GetTagBuf(
                 arr_buffer, byref(tag_length), byref(tag_number)
             )
         elif self.interface == "COM":
-            ret = self.reader_dll.SWCom_GetTagBuf(
+            ret = self.reader_lib.SWCom_GetTagBuf(
                 arr_buffer, byref(tag_length), byref(tag_number)
             )
         else:
