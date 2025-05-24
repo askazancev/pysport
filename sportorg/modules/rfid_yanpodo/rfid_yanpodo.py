@@ -18,6 +18,7 @@ import serial
 from fastapi import FastAPI
 from pydantic import BaseModel
 import uvicorn
+import pyudev
 from contextlib import asynccontextmanager
 
 from PySide6.QtCore import QThread, Signal
@@ -39,7 +40,7 @@ class YanpodoThread(QThread):
         super().__init__()
         self.setObjectName(self.__class__.__name__)
         self.interface = interface  # "USB" or "COM"
-        self.port = port            # COM port 
+        self.port = port  # COM port
         self._queue = queue
         self._stop_event = stop_event
         self._logger = logger
@@ -280,14 +281,30 @@ class CardData(BaseModel):
     deviceId: str
 
 
+def find_yanpodo_devices():
+    """Возвращает список путей устройств с VID:PID 1a86:e010"""
+    context = pyudev.Context()
+    devices = []
+    for device in context.list_devices(subsystem="usb", DEVTYPE="usb_device"):
+        if device.get("ID_VENDOR_ID") == "1a86" and device.get("ID_MODEL_ID") == "e010":
+            print(f"Found device: {device.device_node}")
+            # Найти hid-устройства, связанные с этим USB
+            for child in device.children:
+                if child.device_node is not None:
+                    print(f"Child device: {child.device_node} and Subsystem: {child.subsystem}")
+                    if child.subsystem == "hidraw":
+                        print(f"Found hidraw device: {child.device_node}")
+                        devices.append(child.device_node)
+    return devices
+
+
 @singleton
 class YanpodoClient:
     def __init__(self):
         self._queue = Queue()
         self._stop_event = Event()
-        self._yanpodo_thread = None
+        self._yanpodo_threads = {}  # path -> thread
         self._result_thread = None
-        self.port = None
         self._logger = logging.getLogger("YanpodoClient")
         self._call_back = None
 
@@ -321,17 +338,31 @@ class YanpodoClient:
             self._start_result_thread()
 
     def is_alive(self):
+        # Считаем, что клиент жив, если есть хотя бы один активный поток
+        any_thread_alive = any(
+            thread is not None and not thread.isFinished()
+            for thread in self._yanpodo_threads.values()
+        )
         return (
-            self._yanpodo_thread is not None
+            any_thread_alive
             and self._result_thread is not None
-            and not self._yanpodo_thread.isFinished()
             and not self._result_thread.isFinished()
         )
 
     def start(self, interface="USB"):
-        self.port = self.choose_port()
         self._stop_event.clear()
-        self._start_yanpodo_thread(interface)
+        devices = find_yanpodo_devices()
+        for path in devices:
+            if (
+                path not in self._yanpodo_threads
+                or self._yanpodo_threads[path] is None
+                or self._yanpodo_threads[path].isFinished()
+            ):
+                thread = YanpodoThread(
+                    interface, path, self._queue, self._stop_event, self._logger
+                )
+                thread.start()
+                self._yanpodo_threads[path] = thread
         self._start_result_thread()
 
         # Запуск сервера в отдельном потоке
@@ -349,7 +380,7 @@ class YanpodoClient:
         async def receive_data(data: CardData):
             card_data = {
                 "epc": data.card_number,
-                "time": data.finish_time, #OTime.now(),
+                "time": data.finish_time,  # OTime.now(),
             }
             # Обработка данных в отдельном потоке
             threading.Thread(
@@ -363,9 +394,7 @@ class YanpodoClient:
 
     def _process_remote_data(self, card_data):
         """Обрабатывает данные, полученные от удаленных считывателей."""
-        arr_buffer = bytes(
-            [len(card_data["epc"])] + list(card_data["epc"].encode())
-        )
+        arr_buffer = bytes([len(card_data["epc"])] + list(card_data["epc"].encode()))
         self._yanpodo_thread._process_tags(arr_buffer, tag_count=1)
 
     def toggle(self, interface="USB"):
@@ -379,8 +408,12 @@ class YanpodoClient:
 
     def stop(self):
         self._stop_event.set()
-        if self._yanpodo_thread:
-            self._yanpodo_thread.wait()
+        for thread in self._yanpodo_threads.values():
+            if thread:
+                thread.wait()
+        self._yanpodo_threads.clear()
+        if self._result_thread:
+            self._result_thread.wait()
 
 
 if __name__ == "__main__":

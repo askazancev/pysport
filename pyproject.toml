@@ -26,6 +26,9 @@ sportident = "^1"
 fastapi = "^0.115.12"
 pydantic = "<2.0.0"
 uvicorn = "<0.18.0"
+pyudev = "^0.24.3"
+hidapi = "^0.14.0.post4"
+pyusb = "1.2.1"
 
 [tool.poetry.group.dev.dependencies]
 cx_Freeze = "^6.15.16"
